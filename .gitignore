@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+
+# Build outputs
+*.spec
+*.exe
+
+# Output directories
+output/
+output_*/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Project internal (private dev docs)
+GEMINI.md
+doc/

@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "appt-ocr"
+version = "3.0.0"
+description = "Batch PPTX/PDF OCR tool — extracts images, recognizes text via PaddleOCR, and reconstructs editable text boxes with background inpainting"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Aaron Tzeng" }
+]
+keywords = [
+    "ocr",
+    "pptx",
+    "pdf",
+    "paddleocr",
+    "inpainting",
+    "text-recognition",
+    "powerpoint",
+    "presentation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Topic :: Office/Business :: Office Suites",
+]
+dependencies = [
+    "paddlepaddle>=2.6.0",
+    "paddleocr>=2.7.0,<2.8.0",
+    "numpy<2.0.0",
+    "opencv-python-headless<4.10.0",
+    "python-pptx>=0.6.21",
+    "Pillow>=9.0.0",
+    "tqdm>=4.60.0",
+    "PyMuPDF>=1.23.0",
+    "opencc-python-reimplemented>=0.1.7",
+]
+
+[project.optional-dependencies]
+lama = [
+    "simple-lama-inpainting>=0.1.0",
+]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pyright>=1.1.300",
+    "bandit[toml]>=1.7.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/aarontzeng/Appt-OCR"
+Documentation = "https://github.com/aarontzeng/Appt-OCR#readme"
+Issues = "https://github.com/aarontzeng/Appt-OCR/issues"
+Source = "https://github.com/aarontzeng/Appt-OCR"
+Changelog = "https://github.com/aarontzeng/Appt-OCR/blob/main/CHANGELOG.md"
+
+[project.scripts]
+appt-ocr = "appt_ocr.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["appt_ocr*"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov=appt_ocr",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-branch",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["appt_ocr"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]
+
+[tool.pyright]
+include = ["appt_ocr"]
+typeCheckingMode = "basic"
+pythonVersion = "3.9"
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv"]
+skips = ["B101"]  # assert_used

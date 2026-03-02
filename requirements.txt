@@ -1,0 +1,13 @@
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0,<2.8.0
+numpy<2.0.0
+opencv-python-headless<4.10.0
+python-pptx>=0.6.21
+Pillow>=9.0.0
+tqdm>=4.60.0
+PyMuPDF>=1.23.0
+opencc-python-reimplemented>=0.1.7
+
+# Optional engines and build tools
+simple-lama-inpainting>=0.1.0
+pyinstaller>=6.0

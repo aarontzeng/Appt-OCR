@@ -8,7 +8,7 @@ Provides two engines for erasing detected text from images:
 
 import io
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import cv2
 import numpy as np
@@ -17,13 +17,13 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 # Lazily initialized LaMa Inpainting model
-_lama_model: Optional[object] = None
+_lama_model: Optional[Any] = None
 
 # LaMa inference resolution cap — automatically scales down if exceeded
 LAMA_MAX_DIM = 2048
 
 
-def get_lama_model() -> Optional[object]:
+def get_lama_model() -> Optional[Any]:
     """Retrieve or initialize the LaMa Inpainting model (lazy load).
 
     On first call, downloads the LaMa model weights automatically from

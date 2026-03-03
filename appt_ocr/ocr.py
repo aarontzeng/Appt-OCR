@@ -8,7 +8,7 @@ import logging
 import math
 import os
 import tempfile
-from typing import Optional
+from typing import Any, Optional
 
 # Disable PaddlePaddle connectivity checks which causes startup delay
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
@@ -16,13 +16,13 @@ os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 logger = logging.getLogger(__name__)
 
 # Lazily initialized OCR engine instance
-_ocr_engine: Optional[object] = None
+_ocr_engine: Optional[Any] = None
 
 # Lazily initialized OpenCC simplified-to-traditional converter
-_opencc_converter: Optional[object] = None
+_opencc_converter: Optional[Any] = None
 
 
-def get_ocr_engine(lang: str = "ch") -> object:
+def get_ocr_engine(lang: str = "ch") -> Any:
     """Retrieve or initialize the PaddleOCR engine (lazy load).
 
     Args:
@@ -49,7 +49,7 @@ def get_ocr_engine(lang: str = "ch") -> object:
     return _ocr_engine
 
 
-def get_opencc_converter() -> Optional[object]:
+def get_opencc_converter() -> Optional[Any]:
     """Retrieve or initialize the OpenCC converter (lazy load).
 
     Uses ``s2t`` (Simplified to Traditional) configuration.

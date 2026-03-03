@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/aarontzeng/Appt-OCR/actions/workflows/ci.yml/badge.svg)](https://github.com/aarontzeng/Appt-OCR/actions)
-[![Code Coverage](https://img.shields.io/badge/coverage-70%25-brightgreen)](docs/DEVELOPMENT.md)
+[![codecov](https://codecov.io/gh/aarontzeng/Appt-OCR/branch/main/graph/badge.svg)](https://codecov.io/gh/aarontzeng/Appt-OCR)
 [![PyPI](https://img.shields.io/pypi/v/appt-ocr.svg)](https://pypi.org/project/appt-ocr/)
 [![PaddleOCR](https://img.shields.io/badge/OCR-PaddleOCR-orange)](https://github.com/PaddlePaddle/PaddleOCR)
 

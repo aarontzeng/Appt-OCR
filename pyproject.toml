@@ -75,6 +75,9 @@ appt-ocr = "appt_ocr.cli:main"
 [tool.setuptools.packages.find]
 include = ["appt_ocr*"]
 
+[tool.setuptools.package-data]
+appt_ocr = ["py.typed"]
+
 [tool.ruff]
 target-version = "py39"
 line-length = 88

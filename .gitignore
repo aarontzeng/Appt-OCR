@@ -33,6 +33,8 @@ output_*/
 .DS_Store
 Thumbs.db
 
-# Project internal (private dev docs)
+# Project internal (private dev docs, test files)
 GEMINI.md
 doc/
+*.pdf
+*.pptx

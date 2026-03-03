@@ -8,9 +8,7 @@ Pillow>=9.0.0
 tqdm>=4.60.0
 PyMuPDF>=1.23.0
 opencc-python-reimplemented>=0.1.7
-
-# Optional: LaMa inpainting (mirrors pyproject.toml [project.optional-dependencies.lama])
-# simple-lama-inpainting>=0.1.0
+simple-lama-inpainting>=0.1.0
 
 # Dev dependencies (mirrors pyproject.toml [project.optional-dependencies.dev])
 # ruff>=0.4.0

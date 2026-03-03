@@ -128,7 +128,14 @@ def process_slide(
                 inpaint_boxes.append(item)
 
         # 5. Analyze text features (color, boldness, and precise masks)
-        for item in kept_boxes + inpaint_boxes:
+        # Deduplicate: regular text boxes appear in both lists (same dict reference)
+        seen_ids: set[int] = set()
+        unique_boxes: list[dict] = []
+        for b in kept_boxes + inpaint_boxes:
+            if id(b) not in seen_ids:
+                seen_ids.add(id(b))
+                unique_boxes.append(b)
+        for item in unique_boxes:
             c_rgb, is_bold, mask = analyze_text_features(image_blob, item)
             item["color"] = c_rgb
             item["is_bold"] = is_bold

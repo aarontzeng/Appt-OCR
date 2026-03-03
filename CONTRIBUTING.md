@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Appt-OCR! This document provides 
 
 3. **Install in development mode**:
    ```bash
-   pip install -e ".[dev,lama]"
+   pip install -e ".[dev]"
    ```
 
 ## Code Style

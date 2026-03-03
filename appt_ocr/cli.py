@@ -82,11 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--remove-re",
         type=str,
-        default="(?i)notebooklm",
+        default="",
         help=(
             "Regex: Text matching this pattern will be erased silently "
-            "(no text box created). Defaults to '(?i)notebooklm' to "
-            "remove watermarks."
+            "(no text box created). Useful for removing watermarks. "
+            "Example: '(?i)notebooklm' to erase NotebookLM watermarks, "
+            "'(?i)confidential|draft' to erase draft watermarks."
         ),
     )
     parser.add_argument(

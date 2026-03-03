@@ -34,7 +34,7 @@ venv\Scripts\activate
 Install the package with all development dependencies:
 
 ```bash
-pip install -e ".[dev,lama]"
+pip install -e ".[dev]"
 ```
 
 This installs:

@@ -34,8 +34,6 @@ def get_ocr_engine(lang: str = "ch") -> object:
     """
     global _ocr_engine
     if _ocr_engine is None:
-        import logging
-
         logging.getLogger("ppocr").setLevel(logging.ERROR)
 
         from paddleocr import PaddleOCR

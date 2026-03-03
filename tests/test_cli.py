@@ -152,10 +152,10 @@ class TestBuildParser:
         assert args.ignore_re == r"P\s*="
 
     def test_parser_remove_re_default(self):
-        """Test default remove regex."""
+        """Test default remove regex is empty string."""
         parser = build_parser()
         args = parser.parse_args(["test.pptx"])
-        assert args.remove_re == "(?i)notebooklm"
+        assert args.remove_re == ""
 
     def test_parser_watermark_only_flag(self):
         """Test --watermark-only flag."""

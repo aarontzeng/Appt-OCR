@@ -19,12 +19,18 @@ logger = logging.getLogger(__name__)
 # Lazily initialized LaMa Inpainting model
 _lama_model: Optional[object] = None
 
+# LaMa inference resolution cap — automatically scales down if exceeded
+LAMA_MAX_DIM = 2048
+
 
 def get_lama_model() -> Optional[object]:
     """Retrieve or initialize the LaMa Inpainting model (lazy load).
 
+    On first call, downloads the LaMa model weights automatically from
+    HuggingFace (~174 MB, cached in ``~/.cache/huggingface/``).
+
     Returns:
-        SimpleLama instance, or ``None`` if not installed.
+        SimpleLama instance, or ``None`` if the model fails to load.
     """
     global _lama_model
     if _lama_model is None:
@@ -32,12 +38,6 @@ def get_lama_model() -> Optional[object]:
             from simple_lama_inpainting import SimpleLama
 
             _lama_model = SimpleLama()
-        except ImportError:
-            logger.warning(
-                "simple-lama-inpainting is not installed, switching to OpenCV engine. "
-                "Install with: pip install simple-lama-inpainting"
-            )
-            return None
         except Exception as e:
             logger.warning(
                 "Failed to load LaMa model: %s, falling back to OpenCV engine", e
@@ -158,9 +158,6 @@ def erase_text_using_lama(image_bytes: bytes, boxes: list[dict]) -> bytes:
     Returns:
         Processed image binary content (PNG format).
     """
-    # LaMa inference resolution cap — automatically scales down if exceeded
-    LAMA_MAX_DIM = 2048
-
     if not boxes:
         return image_bytes
 

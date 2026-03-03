@@ -41,13 +41,7 @@ cd Appt-OCR
 pip install -e .
 ```
 
-### With LaMa Inpainting (Optional, Higher Quality)
-
-```bash
-pip install -e ".[lama]"
-```
-
-> **Note**: LaMa requires PyTorch (~174 MB model download on first run). If not installed, Appt-OCR automatically falls back to the OpenCV engine.
+> **Note**: On first run with `--inpaint-engine lama` (the default), the LaMa model weights (~174 MB) are downloaded automatically from HuggingFace and cached in `~/.cache/huggingface/`. Subsequent runs load from cache.
 
 ## 📖 Quick Start
 
@@ -78,6 +72,9 @@ appt-ocr slides.pptx --lang en
 
 # Remove watermarks only (no OCR text boxes)
 appt-ocr slides.pptx --watermark-only --remove-re "(?i)notebooklm"
+
+# Remove NotebookLM watermarks AND reconstruct all other text boxes
+appt-ocr slides.pptx --remove-re "(?i)notebooklm"
 
 # Ignore math formulas in the background
 appt-ocr lecture.pptx --ignore-re "P\\s*=|∑|∫"
@@ -113,7 +110,7 @@ print(f"Created {stats['total_textboxes']} text boxes across {stats['total_slide
 | `--inpaint-engine` | `lama` | `lama` (AI, high quality) or `opencv` (lightweight) |
 | `--pdf-dpi` | `300` | PDF rendering resolution |
 | `--ignore-re` | `""` | Regex: keep matching text in background |
-| `--remove-re` | `(?i)notebooklm` | Regex: silently erase matching text |
+| `--remove-re` | `""` | Regex: silently erase matching text |
 | `--watermark-only` | `False` | Only erase watermarks, skip text box creation |
 | `--no-s2t` | `False` | Disable Simplified → Traditional Chinese conversion |
 
@@ -177,7 +174,7 @@ git clone https://github.com/aarontzeng/Appt-OCR.git
 cd Appt-OCR
 python -m venv venv
 source venv/bin/activate
-pip install -e ".[dev,lama]"
+pip install -e ".[dev]"
 pytest tests/ -v
 ```
 

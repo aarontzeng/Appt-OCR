@@ -41,24 +41,23 @@ python --version
 
 ---
 
-### Q: What's the difference between installing with `pip install appt-ocr` vs `pip install -e ".[lama]"`?
+### Q: What's the difference between installing with `pip install appt-ocr` vs `pip install -e ".[dev]"`?
 
 **A:**
 
 | Method | LaMa Support | Development |
 |--------|--------------|-------------|
-| `pip install appt-ocr` | ❌ No (falls back to OpenCV) | ❌ No |
-| `pip install -e .` | ❌ No | ✅ Yes (editable) |
-| `pip install -e ".[lama]"` | ✅ Yes (PyTorch ~174MB) | ✅ Yes |
-| `pip install -e ".[dev]"` | ❌ No | ✅ Yes (includes testing tools) |
+| `pip install appt-ocr` | ✅ Yes (model auto-downloads on first run) | ❌ No |
+| `pip install -e .` | ✅ Yes (model auto-downloads on first run) | ✅ Yes (editable) |
+| `pip install -e ".[dev]"` | ✅ Yes | ✅ Yes (includes testing tools) |
 
 ---
 
 ### Q: The LaMa model is huge (~174MB). Do I have to download it?
 
-**A:** Only if you use `--inpaint-engine lama`. If not installed, Appt-OCR automatically falls back to OpenCV (lightweight, built-in).
+**A:** The LaMa model weights (~174 MB) are downloaded automatically on first run and cached in `~/.cache/huggingface/`. Subsequent runs load from cache instantly.
 
-To skip LaMa entirely:
+To skip LaMa and use the lightweight OpenCV engine instead:
 ```bash
 appt-ocr input.pptx --inpaint-engine opencv
 ```
@@ -233,9 +232,47 @@ appt-ocr -h | cat
 
 ---
 
-### Q: How do I use Appt-OCR programmatically in my Python code?
+### Q: How do I remove NotebookLM watermarks from exported slides?
 
-**A:** See [API.md](./API.md) for full documentation. Quick example:
+**A:** Google NotebookLM adds a subtle watermark to exported slides. Use `--remove-re` with a regex matching the watermark text:
+
+**Option 1 — Erase watermark only (keep all other text in images):**
+```bash
+appt-ocr slides.pptx --watermark-only --remove-re "(?i)notebooklm"
+```
+
+**Option 2 — Erase watermark AND reconstruct all other text as editable text boxes:**
+```bash
+appt-ocr slides.pptx --remove-re "(?i)notebooklm"
+```
+
+The `(?i)` flag makes the match case-insensitive. You can also combine multiple patterns:
+```bash
+appt-ocr slides.pptx --remove-re "(?i)notebooklm|watermark"
+```
+
+> **Tip:** Use `--inpaint-engine lama` for cleaner watermark removal on complex backgrounds.
+
+---
+
+### Q: How do I remove other types of watermarks?
+
+**A:** Use `--remove-re` with any regex pattern:
+
+```bash
+# Remove "CONFIDENTIAL" watermark
+appt-ocr slides.pptx --remove-re "(?i)confidential"
+
+# Remove "DRAFT" or "SAMPLE" watermarks
+appt-ocr slides.pptx --remove-re "(?i)draft|sample"
+
+# Watermark-only mode (skip OCR text box reconstruction entirely)
+appt-ocr slides.pptx --watermark-only --remove-re "(?i)confidential"
+```
+
+---
+
+### Q: How do I use Appt-OCR programmatically in my Python code?
 
 ```python
 from appt_ocr import process_pptx

@@ -186,6 +186,22 @@ See [Development Guide](docs/DEVELOPMENT.md) for more details.
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
+### Third-Party Licenses
+
+| Dependency | License | Notes |
+|------------|---------|-------|
+| [PyMuPDF](https://github.com/pymupdf/PyMuPDF) | **AGPL-3.0** | Used for PDF rendering only. PyMuPDF is built on MuPDF which is AGPL-3.0. If you distribute software that includes PDF functionality, be aware of the AGPL terms. |
+| [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) | Apache-2.0 | |
+| [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) | Apache-2.0 | |
+| [LaMa](https://github.com/advimman/lama) (via simple-lama-inpainting) | Apache-2.0 | Model weights (~174 MB) are auto-downloaded from HuggingFace on first run |
+| [opencv-python-headless](https://github.com/opencv/opencv-python) | Apache-2.0 | |
+| [opencc-python-reimplemented](https://github.com/yichen0831/opencc-python) | Apache-2.0 | |
+| [python-pptx](https://github.com/scanny/python-pptx) | MIT | |
+| [Pillow](https://github.com/python-pillow/Pillow) | HPND | |
+| [NumPy](https://numpy.org) | BSD-3-Clause | |
+
+> **Note on PyMuPDF / AGPL-3.0**: This project uses PyMuPDF solely for PDF-to-image conversion. The AGPL-3.0 license of PyMuPDF applies to that component. If you need to avoid AGPL dependencies in your own distribution, you can disable PDF support by not calling the PDF conversion path, or replace PyMuPDF with an MIT/Apache-licensed alternative.
+
 ---
 
 ## 🙏 Acknowledgments

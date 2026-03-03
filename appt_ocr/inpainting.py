@@ -7,11 +7,14 @@ Provides two engines for erasing detected text from images:
 """
 
 import io
+import logging
 from typing import Optional
 
 import cv2
 import numpy as np
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 # Lazily initialized LaMa Inpainting model
 _lama_model: Optional[object] = None
@@ -30,16 +33,14 @@ def get_lama_model() -> Optional[object]:
 
             _lama_model = SimpleLama()
         except ImportError:
-            print(
-                "⚠ simple-lama-inpainting is not installed, "
-                "switching to OpenCV engine"
+            logger.warning(
+                "simple-lama-inpainting is not installed, switching to OpenCV engine. "
+                "Install with: pip install simple-lama-inpainting"
             )
-            print("  How to install: pip install simple-lama-inpainting")
             return None
         except Exception as e:
-            print(
-                f"⚠ Failed to load LaMa model: {e}, "
-                "falling back to OpenCV engine"
+            logger.warning(
+                "Failed to load LaMa model: %s, falling back to OpenCV engine", e
             )
             return None
     return _lama_model
@@ -110,9 +111,7 @@ def erase_text_using_masks(
 
             # Dynamic dilation based on text height
             expand_px = max(2, h // 10)
-            kernel = np.ones(
-                (expand_px * 2 + 1, expand_px * 2 + 1), np.uint8
-            )
+            kernel = np.ones((expand_px * 2 + 1, expand_px * 2 + 1), np.uint8)
 
             # Dilate to cover residual anti-aliasing edges
             roi_mask_dilated = cv2.dilate(
@@ -139,7 +138,7 @@ def erase_text_using_masks(
         return image_bytes
 
     except Exception as e:
-        print(f"Failed to precisely erase text: {e}")
+        logger.warning("Failed to precisely erase text: %s", e)
         return image_bytes
 
 
@@ -202,9 +201,7 @@ def erase_text_using_lama(image_bytes: bytes, boxes: list[dict]) -> bytes:
         if scale < 1.0:
             new_w = int(img_w * scale)
             new_h = int(img_h * scale)
-            img_resized = cv2.resize(
-                img, (new_w, new_h), interpolation=cv2.INTER_AREA
-            )
+            img_resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
             mask_resized = cv2.resize(
                 full_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST
             )
@@ -227,5 +224,5 @@ def erase_text_using_lama(image_bytes: bytes, boxes: list[dict]) -> bytes:
         return buf.getvalue()
 
     except Exception as e:
-        print(f"Failed to erase text using LaMa: {e}, falling back to OpenCV")
+        logger.warning("Failed to erase text using LaMa: %s, falling back to OpenCV", e)
         return erase_text_using_masks(image_bytes, boxes, engine="opencv")

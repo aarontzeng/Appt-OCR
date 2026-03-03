@@ -13,6 +13,7 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.shapes.picture import Picture
+from pptx.slide import Slide
 from pptx.util import Emu, Pt
 from tqdm import tqdm
 
@@ -24,7 +25,7 @@ from appt_ocr.ocr import get_opencc_converter, run_ocr_on_image
 
 
 def process_slide(
-    slide,
+    slide: Slide,
     dpi: int = 96,
     lang: str = "ch",
     keep_images: bool = False,
@@ -155,12 +156,8 @@ def process_slide(
 
         # 7. Convert OCR results to text boxes
         for item in kept_boxes:
-            left_emu = (
-                int(px_to_emu(item["left_px"], dpi) * scale_x) + shape_left_emu
-            )
-            top_emu = (
-                int(px_to_emu(item["top_px"], dpi) * scale_y) + shape_top_emu
-            )
+            left_emu = int(px_to_emu(item["left_px"], dpi) * scale_x) + shape_left_emu
+            top_emu = int(px_to_emu(item["top_px"], dpi) * scale_y) + shape_top_emu
             width_emu = int(px_to_emu(item["width_px"], dpi) * scale_x)
             height_emu = int(px_to_emu(item["height_px"], dpi) * scale_y)
 

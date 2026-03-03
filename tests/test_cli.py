@@ -1,6 +1,5 @@
 """Tests for CLI module."""
 
-import os
 
 import pytest
 

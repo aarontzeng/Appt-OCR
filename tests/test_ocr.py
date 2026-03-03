@@ -1,6 +1,5 @@
 """Tests for ocr.py"""
 
-import os
 
 import pytest
 
@@ -57,20 +56,27 @@ class TestGetOpenccConverter:
 class TestRunOcrOnImage:
     """Test OCR on image data."""
 
-    def test_run_ocr_on_image_returns_dict(self, sample_image_bytes):
-        """Test that run_ocr_on_image returns a dictionary."""
+    def test_run_ocr_on_image_returns_list(self, sample_image_bytes):
+        """Test that run_ocr_on_image returns a list."""
         result = run_ocr_on_image(sample_image_bytes, lang="ch")
-        assert isinstance(result, dict)
+        assert isinstance(result, list)
 
-    def test_run_ocr_on_image_required_fields(self, sample_image_bytes):
-        """Test that OCR result contains required fields."""
+    def test_run_ocr_on_image_items_are_dicts(self, sample_image_bytes):
+        """Test that each OCR result item is a dict with required fields."""
         result = run_ocr_on_image(sample_image_bytes, lang="ch")
-        assert "text" in result or "boxes" in result
+        for item in result:
+            assert isinstance(item, dict)
+            assert "text" in item
+            assert "left_px" in item
+            assert "top_px" in item
+            assert "width_px" in item
+            assert "height_px" in item
+            assert "confidence" in item
 
     def test_run_ocr_on_image_with_english(self, sample_image_bytes):
         """Test OCR with English language."""
         result = run_ocr_on_image(sample_image_bytes, lang="en")
-        assert isinstance(result, dict)
+        assert isinstance(result, list)
 
     def test_run_ocr_on_image_with_invalid_bytes(self):
         """Test OCR with invalid image bytes."""
@@ -84,15 +90,11 @@ class TestRunOcrOnImage:
         with pytest.raises(Exception):
             run_ocr_on_image(b"", lang="ch")
 
-    def test_run_ocr_on_image_s2t_conversion(self, sample_image_bytes):
-        """Test OCR with simplified to traditional Chinese conversion."""
-        result = run_ocr_on_image(sample_image_bytes, lang="ch", s2t=True)
-        assert isinstance(result, dict)
-
-    def test_run_ocr_on_image_no_s2t(self, sample_image_bytes):
-        """Test OCR without simplified to traditional conversion."""
-        result = run_ocr_on_image(sample_image_bytes, lang="ch", s2t=False)
-        assert isinstance(result, dict)
+    def test_run_ocr_on_image_plain_image_returns_list(self, sample_image_bytes):
+        """Test OCR on plain image (no text) returns empty list."""
+        result = run_ocr_on_image(sample_image_bytes, lang="ch")
+        # A solid red image has no text, so result should be empty list
+        assert isinstance(result, list)
 
 
 class TestOcrIntegration:

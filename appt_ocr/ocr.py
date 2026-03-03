@@ -4,6 +4,7 @@ Manages PaddleOCR initialization, OpenCC simplified-to-traditional conversion,
 and OCR text detection/recognition.
 """
 
+import logging
 import math
 import os
 import tempfile
@@ -11,6 +12,8 @@ from typing import Optional
 
 # Disable PaddlePaddle connectivity checks which causes startup delay
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+
+logger = logging.getLogger(__name__)
 
 # Lazily initialized OCR engine instance
 _ocr_engine: Optional[object] = None
@@ -63,14 +66,14 @@ def get_opencc_converter() -> Optional[object]:
 
             _opencc_converter = OpenCC("s2t")
         except ImportError:
-            print(
-                "⚠ opencc-python-reimplemented is not installed, "
-                "unable to convert simplified to traditional Chinese"
+            logger.warning(
+                "opencc-python-reimplemented is not installed, "
+                "unable to convert simplified to traditional Chinese. "
+                "Install with: pip install opencc-python-reimplemented"
             )
-            print("  How to install: pip install opencc-python-reimplemented")
             return None
         except Exception as e:
-            print(f"⚠ OpenCC initialization failed: {e}")
+            logger.warning("OpenCC initialization failed: %s", e)
             return None
     return _opencc_converter
 

@@ -1,6 +1,5 @@
 """Tests for merging.py"""
 
-import pytest
 
 from appt_ocr.merging import merge_nearby_boxes
 

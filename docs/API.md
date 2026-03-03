@@ -20,7 +20,7 @@ def process_pptx(
     remove_re: str = "(?i)notebooklm",
     inpaint_engine: str = "lama",
     watermark_only: bool = False,
-    s2t: bool = True,
+    s2t: bool = False,
 ) -> dict[str, Any]
 ```
 
@@ -44,7 +44,7 @@ def process_pptx(
   - `"lama"` - Deep learning model (high quality, requires PyTorch)
   - `"opencv"` - Traditional algorithm (lightweight, fast)
 - `watermark_only` (bool, default=False): If `True`, only erase text matching `remove_re`, skip OCR
-- `s2t` (bool, default=True): If `True`, convert simplified Chinese to traditional Chinese
+- `s2t` (bool, default=False): If `True`, convert simplified Chinese to traditional Chinese
 
 **Returns:**
 
@@ -139,27 +139,30 @@ Run OCR on image bytes and return detection results.
 def run_ocr_on_image(
     image_bytes: bytes,
     lang: str = "ch",
-    s2t: bool = False,
-) -> dict[str, Any]
+) -> list[dict]
 ```
 
 **Parameters:**
 
 - `image_bytes` (bytes): Image binary content (PNG, JPEG, etc.)
 - `lang` (str, default="ch"): OCR language ("ch" or "en")
-- `s2t` (bool, default=False): Convert simplified Chinese to traditional
 
 **Returns:**
 
-Dictionary with OCR results:
+List of OCR result dicts, one per detected text region:
 
 ```python
-{
-    "text": str,                    # Recognized text
-    "boxes": list[dict],            # Bounding boxes with coordinates
-    "confidences": list[float],     # Confidence scores
-    # Additional PaddleOCR fields...
-}
+[
+    {
+        "left_px": float,    # Top-left X (pixels)
+        "top_px": float,     # Top-left Y (pixels)
+        "width_px": float,   # Width (pixels)
+        "height_px": float,  # Height (pixels)
+        "text": str,         # Recognized text
+        "confidence": float, # Confidence score (0~1)
+    },
+    ...
+]
 ```
 
 **Example:**
@@ -171,9 +174,10 @@ from appt_ocr import run_ocr_on_image
 with open("slide_image.png", "rb") as f:
     img_bytes = f.read()
 
-result = run_ocr_on_image(img_bytes, lang="ch")
-print(f"Recognized: {result['text']}")
-print(f"Confidence: {result['confidences']}")
+results = run_ocr_on_image(img_bytes, lang="ch")
+for item in results:
+    print(f"Text: {item['text']} (confidence: {item['confidence']:.2f})")
+    print(f"Position: ({item['left_px']}, {item['top_px']})")
 ```
 
 ---

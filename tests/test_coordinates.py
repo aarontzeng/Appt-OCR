@@ -1,12 +1,7 @@
 """Tests for coordinates.py"""
 
-import pytest
 
-from appt_ocr.coordinates import (
-    compute_scale_factors, 
-    estimate_font_size, 
-    px_to_emu
-)
+from appt_ocr.coordinates import compute_scale_factors, estimate_font_size, px_to_emu
 
 
 class TestPxToEmu:

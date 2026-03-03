@@ -3,7 +3,6 @@
 import io
 
 import numpy as np
-import pytest
 from PIL import Image
 
 from appt_ocr.inpainting import (
@@ -18,8 +17,8 @@ class TestGetLamaModel:
     def test_get_lama_model_returns_object_or_none(self):
         """Test that LaMa model is available or returns None gracefully."""
         model = get_lama_model()
-        # Could be None if not installed, or an object if installed
-        assert model is None or hasattr(model, "predict")
+        # Could be None if not installed, or a callable object if installed
+        assert model is None or callable(model)
 
     def test_get_lama_model_caches_result(self):
         """Test that subsequent calls return cached instance."""

@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  appt-ocr presentation.pptx\n"
-            '  appt-ocr *.pptx --output-dir output/\n'
+            "  appt-ocr *.pptx --output-dir output/\n"
             "  appt-ocr slides.pptx --keep-images --lang en\n"
             "  appt-ocr report.pdf --inpaint-engine lama\n"
         ),
@@ -102,10 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pdf-dpi",
         type=int,
         default=300,
-        help=(
-            "PDF rendering resolution (DPI). Default 300. "
-            "Suggested range: 150~300."
-        ),
+        help=("PDF rendering resolution (DPI). Default 300. Suggested range: 150~300."),
     )
     parser.add_argument(
         "--watermark-only",
@@ -169,16 +166,12 @@ def main() -> None:
     print("=" * 60)
     print(f"  Input Files:   {len(input_files)}")
     print(f"  Output Dir:    {args.output_dir}")
-    print(
-        f"  OCR Language:  {'Bilingual' if args.lang == 'ch' else 'English Only'}"
-    )
+    print(f"  OCR Language:  {'Bilingual' if args.lang == 'ch' else 'English Only'}")
     print(f"  Keep Images:   {'Yes' if args.keep_images else 'No'}")
     print(f"  DPI:           {args.dpi}")
     print(f"  Merge Thresh:  {args.merge_threshold}")
     engine_label = (
-        "LaMa Deep Learning"
-        if args.inpaint_engine == "lama"
-        else "OpenCV Traditional"
+        "LaMa Deep Learning" if args.inpaint_engine == "lama" else "OpenCV Traditional"
     )
     print(f"  Erase Engine:  {engine_label}")
     print(f"  PDF DPI:       {args.pdf_dpi}")
@@ -227,9 +220,7 @@ def main() -> None:
         actual_input = input_file
         if input_file.lower().endswith(".pdf"):
             try:
-                actual_input = convert_pdf_to_pptx(
-                    input_file, dpi=args.pdf_dpi
-                )
+                actual_input = convert_pdf_to_pptx(input_file, dpi=args.pdf_dpi)
                 tmp_files.append(actual_input)
             except Exception as e:
                 print(f"   ❌ PDF Conversion Failed: {e}")

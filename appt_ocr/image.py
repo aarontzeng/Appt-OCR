@@ -5,11 +5,14 @@ from python-pptx Picture shapes.
 """
 
 import io
+import logging
 
 import cv2
 import numpy as np
 from PIL import Image
 from pptx.shapes.picture import Picture
+
+logger = logging.getLogger(__name__)
 
 
 def analyze_text_features(
@@ -123,7 +126,7 @@ def analyze_text_features(
         return avg_color, is_bold, combined
 
     except Exception as e:
-        print(f"Failed to extract text features: {e}")
+        logger.warning("Failed to extract text features: %s", e)
         return default_color, default_bold, empty_mask
 
 

@@ -5,10 +5,13 @@ into a temporary PPTX file for the OCR pipeline.
 """
 
 import io
+import logging
 import tempfile
 
 import fitz  # PyMuPDF
 from pptx import Presentation
+
+logger = logging.getLogger(__name__)
 
 
 def convert_pdf_to_pptx(pdf_path: str, dpi: int = 300) -> str:
@@ -72,5 +75,5 @@ def convert_pdf_to_pptx(pdf_path: str, dpi: int = 300) -> str:
     prs.save(tmp_pptx.name)
     tmp_pptx.close()
 
-    print(f"   📄 PDF Conversion complete: {total_pages} pages -> {tmp_pptx.name}")
+    logger.info("PDF conversion complete: %d pages -> %s", total_pages, tmp_pptx.name)
     return tmp_pptx.name

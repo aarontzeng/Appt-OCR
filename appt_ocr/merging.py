@@ -35,9 +35,7 @@ def merge_nearby_boxes(
         return []
 
     # Sort by top_px (Y coordinate) then by left_px (X coordinate)
-    sorted_results = sorted(
-        ocr_results, key=lambda r: (r["top_px"], r["left_px"])
-    )
+    sorted_results = sorted(ocr_results, key=lambda r: (r["top_px"], r["left_px"]))
 
     merged: list[dict] = []
     current = sorted_results[0].copy()
@@ -74,9 +72,7 @@ def merge_nearby_boxes(
             current["top_px"] = new_top
             current["height_px"] = new_bottom - new_top
             current["text"] += next_box["text"]
-            current["confidence"] = min(
-                current["confidence"], next_box["confidence"]
-            )
+            current["confidence"] = min(current["confidence"], next_box["confidence"])
         else:
             merged.append(current)
             current = next_box.copy()

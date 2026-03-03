@@ -182,10 +182,10 @@ def process_slide(
             )
             tf = txbox.text_frame
             tf.word_wrap = True
-            tf.margin_left = 0
-            tf.margin_right = 0
-            tf.margin_top = 0
-            tf.margin_bottom = 0
+            tf.margin_left = Emu(0)
+            tf.margin_right = Emu(0)
+            tf.margin_top = Emu(0)
+            tf.margin_bottom = Emu(0)
 
             # Set text content (with optional S2T conversion)
             text_content = item["text"]

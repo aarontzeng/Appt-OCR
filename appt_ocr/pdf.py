@@ -10,6 +10,7 @@ import tempfile
 
 import fitz  # PyMuPDF
 from pptx import Presentation
+from pptx.util import Emu
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ def convert_pdf_to_pptx(pdf_path: str, dpi: int = 300) -> str:
     page_rect = first_page.rect
     slide_width_emu = int(page_rect.width * 914400 / 72)
     slide_height_emu = int(page_rect.height * 914400 / 72)
-    prs.slide_width = slide_width_emu
-    prs.slide_height = slide_height_emu
+    prs.slide_width = slide_width_emu  # type: ignore[assignment]
+    prs.slide_height = slide_height_emu  # type: ignore[assignment]
 
     # Use a blank layout
     blank_layout = prs.slide_layouts[6]
@@ -59,10 +60,10 @@ def convert_pdf_to_pptx(pdf_path: str, dpi: int = 300) -> str:
         # Insert full-page picture
         slide.shapes.add_picture(
             io.BytesIO(img_bytes),
-            0,
-            0,
-            sw,
-            sh,
+            Emu(0),
+            Emu(0),
+            Emu(sw),
+            Emu(sh),
         )
 
     total_pages = len(doc)

@@ -116,7 +116,7 @@ def analyze_text_features(
 
         avg_color = default_color
         if len(text_pixels) > 0:
-            avg_bgr = np.mean(text_pixels, axis=0)
+            avg_bgr = np.mean(text_pixels, axis=0)  # type: ignore[call-overload]
             avg_color = (int(avg_bgr[2]), int(avg_bgr[1]), int(avg_bgr[0]))
 
         # Calculate boldness (based on Otsu mask as it is more stable)

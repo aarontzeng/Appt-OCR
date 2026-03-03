@@ -214,7 +214,7 @@ def erase_text_using_lama(image_bytes: bytes, boxes: list[dict]) -> bytes:
 
         # Scale back up if needed
         if scale < 1.0:
-            result = result.resize((img_w, img_h), Image.LANCZOS)
+            result = result.resize((img_w, img_h), Image.Resampling.LANCZOS)
 
         buf = io.BytesIO()
         result.save(buf, format="PNG")

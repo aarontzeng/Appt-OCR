@@ -20,7 +20,7 @@ Usage as a CLI::
 
 """
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 __author__ = "Aaron Tzeng"
 __license__ = "MIT"
 

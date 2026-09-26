@@ -1,7 +1,11 @@
 """Command-line interface for Appt-OCR.
 
-Provides the CLI argument parser, file resolution, and main entry point.
+Argument parsing, input file resolution, the batch loop and the summary.
+Exit status: 0 when every file was processed, 1 when any file failed or no
+input file was found, 2 for a usage error (argparse, an invalid regex).
 """
+
+from __future__ import annotations
 
 import argparse
 import glob
@@ -12,7 +16,9 @@ from pathlib import Path
 from appt_ocr.inpainting import get_lama_model
 from appt_ocr.ocr import get_ocr_engine
 from appt_ocr.pdf import convert_pdf_to_pptx
-from appt_ocr.processing import process_pptx
+from appt_ocr.processing import ProcessingOptions, process_pptx
+
+SUPPORTED_SUFFIXES = (".pptx", ".pdf")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  appt-ocr *.pptx --output-dir output/\n"
             "  appt-ocr slides.pptx --keep-images --lang en\n"
             "  appt-ocr report.pdf --inpaint-engine lama\n"
+            "\n"
+            "Exit status: 0 all files processed, 1 any file failed, 2 usage error.\n"
         ),
     )
     parser.add_argument(
@@ -95,15 +103,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["lama", "opencv"],
         default="lama",
         help=(
-            "Text erasing engine: lama=LaMa deep learning model (high quality), "
-            "opencv=OpenCV traditional algorithm (lightweight). Default: lama"
+            "Text erasing engine: lama=LaMa deep learning model (high quality, "
+            'needs `pip install "appt-ocr[lama]"`; falls back to opencv when '
+            "missing), opencv=OpenCV traditional algorithm (lightweight). "
+            "Default: lama"
         ),
     )
     parser.add_argument(
         "--pdf-dpi",
         type=int,
         default=300,
-        help=("PDF rendering resolution (DPI). Default 300. Suggested range: 150~300."),
+        help="PDF rendering resolution (DPI). Default 300. Suggested range: 150~300.",
     )
     parser.add_argument(
         "--watermark-only",
@@ -128,141 +138,122 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_input_files(patterns: list[str]) -> list[str]:
-    """Expand wildcards and validate input files.
-
-    Args:
-        patterns: List of file paths (may contain glob wildcards).
-
-    Returns:
-        List of validated PPTX/PDF file paths.
-    """
+    """Expand wildcards and keep the .pptx/.pdf files, in order, once each."""
     files: list[str] = []
-    supported = (".pptx", ".pdf")
     for pattern in patterns:
-        expanded = glob.glob(pattern)
+        expanded = sorted(glob.glob(pattern))
         if not expanded:
             print(f"⚠ Warning: Could not find files matching '{pattern}', skipped")
             continue
         for f in expanded:
-            if f.lower().endswith(supported):
-                files.append(f)
-            else:
+            if not f.lower().endswith(SUPPORTED_SUFFIXES):
                 print(f"⚠ Warning: '{f}' is not a .pptx or .pdf file, skipped")
+            elif f not in files:
+                files.append(f)
     return files
 
 
-def main() -> None:
-    """CLI main entry point."""
-    parser = build_parser()
-    args = parser.parse_args()
+def options_from_args(args: argparse.Namespace) -> ProcessingOptions:
+    """The pipeline options for parsed arguments (raises ValueError on a bad one)."""
+    return ProcessingOptions(
+        dpi=args.dpi,
+        lang=args.lang,
+        keep_images=args.keep_images,
+        merge_threshold=args.merge_threshold,
+        ignore_re=args.ignore_re,
+        remove_re=args.remove_re,
+        inpaint_engine=args.inpaint_engine,
+        watermark_only=args.watermark_only,
+        s2t=not args.no_s2t and args.lang != "en",
+    )
 
-    # Expand and validate input files
-    input_files = resolve_input_files(args.input)
-    if not input_files:
-        print("❌ Error: No valid .pptx/.pdf input files found")
-        sys.exit(1)
 
+def _print_banner(
+    args: argparse.Namespace, opts: ProcessingOptions, n_files: int
+) -> None:
     print("=" * 60)
     print("  Appt-OCR — Batch PPTX/PDF OCR Processing Tool")
     print("=" * 60)
-    print(f"  Input Files:   {len(input_files)}")
+    print(f"  Input Files:   {n_files}")
     print(f"  Output Dir:    {args.output_dir}")
-    print(f"  OCR Language:  {'Bilingual' if args.lang == 'ch' else 'English Only'}")
-    print(f"  Keep Images:   {'Yes' if args.keep_images else 'No'}")
-    print(f"  DPI:           {args.dpi}")
-    print(f"  Merge Thresh:  {args.merge_threshold}")
+    print(f"  OCR Language:  {'Bilingual' if opts.lang == 'ch' else 'English Only'}")
+    print(f"  Keep Images:   {'Yes' if opts.keep_images else 'No'}")
+    print(f"  DPI:           {opts.dpi}")
+    print(f"  Merge Thresh:  {opts.merge_threshold}")
     engine_label = (
-        "LaMa Deep Learning" if args.inpaint_engine == "lama" else "OpenCV Traditional"
+        "LaMa Deep Learning" if opts.inpaint_engine == "lama" else "OpenCV Traditional"
     )
     print(f"  Erase Engine:  {engine_label}")
     print(f"  PDF DPI:       {args.pdf_dpi}")
-
-    # Determine whether to enable OpenCC s2t conversion
-    enable_s2t = not args.no_s2t and args.lang != "en"
-    if enable_s2t:
-        print("  S2T Convert:   Enabled (OpenCC s2t)")
-    else:
-        print("  S2T Convert:   Disabled")
-    if args.watermark_only:
+    print(f"  S2T Convert:   {'Enabled (OpenCC s2t)' if opts.s2t else 'Disabled'}")
+    if opts.watermark_only:
         print("  Mode:          Watermark-only Erase")
-    if args.ignore_re:
-        print(f"  Ignore Regex:  {args.ignore_re}")
-    if args.remove_re:
-        print(f"  Remove Regex:  {args.remove_re}")
+    if opts.ignore_re:
+        print(f"  Ignore Regex:  {opts.ignore_re}")
+    if opts.remove_re:
+        print(f"  Remove Regex:  {opts.remove_re}")
     print("=" * 60)
 
-    # Initialize OCR Engine (load early to avoid repeating per file)
-    print("\n⏳ Loading OCR Engine...")
-    get_ocr_engine(args.lang)
-    print("✅ OCR Engine Ready")
 
-    # If LaMa is selected, preload the model
-    if args.inpaint_engine == "lama":
+def _preload_engines(opts: ProcessingOptions) -> ProcessingOptions:
+    """Load the OCR engine (and LaMa) once, before the first file.
+
+    Returns the options to run with: the OpenCV engine when LaMa was asked
+    for but is not available.
+    """
+    print("\n⏳ Loading OCR Engine...")
+    get_ocr_engine(opts.lang)
+    print("✅ OCR Engine Ready")
+    if opts.inpaint_engine == "lama":
         print("⏳ Loading LaMa Inpainting Model...")
-        lama = get_lama_model()
-        if lama is None:
+        if get_lama_model() is None:
             print("⚠ LaMa unavailable, automatically downgrading to OpenCV engine")
-            args.inpaint_engine = "opencv"
+            opts = opts.with_engine("opencv")
         else:
             print("✅ LaMa Model Ready")
     print()
+    return opts
 
-    # Batch Process
-    results: list[dict] = []
-    tmp_files: list[str] = []  # Track temp files needing cleanup
 
-    for input_file in input_files:
-        output_name = Path(input_file).stem + "_ocr.pptx"
-        output_path = os.path.join(args.output_dir, output_name)
+def _process_file(
+    input_file: str, output_dir: str, pdf_dpi: int, opts: ProcessingOptions
+) -> dict:
+    """Process one input file; a failure is a result with an ``error`` key."""
+    output_path = os.path.join(output_dir, Path(input_file).stem + "_ocr.pptx")
+    print(f"📄 Processing: {input_file}")
 
-        print(f"📄 Processing: {input_file}")
-
-        # PDF Preprocessing: Convert to temporary PPTX
+    tmp_pptx: str | None = None
+    try:
         actual_input = input_file
         if input_file.lower().endswith(".pdf"):
             try:
-                actual_input = convert_pdf_to_pptx(input_file, dpi=args.pdf_dpi)
-                tmp_files.append(actual_input)
+                tmp_pptx = actual_input = convert_pdf_to_pptx(input_file, dpi=pdf_dpi)
             except Exception as e:
                 print(f"   ❌ PDF Conversion Failed: {e}")
-                results.append({"input": input_file, "error": str(e)})
-                continue
-
+                return {"input": input_file, "error": str(e)}
         try:
-            stats = process_pptx(
-                input_path=actual_input,
-                output_path=output_path,
-                dpi=args.dpi,
-                lang=args.lang,
-                keep_images=args.keep_images,
-                merge_threshold=args.merge_threshold,
-                ignore_re=args.ignore_re,
-                remove_re=args.remove_re,
-                inpaint_engine=args.inpaint_engine,
-                watermark_only=args.watermark_only,
-                s2t=enable_s2t,
-            )
-            results.append(stats)
-            # Display original filename instead of temp path
-            stats["input"] = input_file
-            print(f"   ✅ Complete -> {output_path}")
-            print(
-                f"      Slides: {stats['total_slides']} | "
-                f"Contains Img: {stats['processed_slides']} | "
-                f"Text Boxes: {stats['total_textboxes']}"
-            )
+            stats = process_pptx(actual_input, output_path, options=opts)
         except Exception as e:
             print(f"   ❌ Failed: {e}")
-            results.append({"input": input_file, "error": str(e)})
+            return {"input": input_file, "error": str(e)}
+    finally:
+        if tmp_pptx:
+            try:
+                os.unlink(tmp_pptx)
+            except OSError:
+                pass
 
-    # Cleanup temporary PDF->PPTX files
-    for tmp in tmp_files:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+    stats["input"] = input_file  # the original name, not the temp PPTX
+    print(f"   ✅ Complete -> {output_path}")
+    print(
+        f"      Slides: {stats['total_slides']} | "
+        f"Contains Img: {stats['processed_slides']} | "
+        f"Text Boxes: {stats['total_textboxes']}"
+    )
+    return stats
 
-    # Summary
+
+def _print_summary(results: list[dict]) -> None:
     print("\n" + "=" * 60)
     print("  Processing Complete! Summary")
     print("=" * 60)
@@ -276,5 +267,28 @@ def main() -> None:
     print("=" * 60)
 
 
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Returns the exit status (see the module docstring)."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        opts = options_from_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))  # exits 2, before any model is loaded
+
+    input_files = resolve_input_files(args.input)
+    if not input_files:
+        print("❌ Error: No valid .pptx/.pdf input files found")
+        return 1
+
+    _print_banner(args, opts, len(input_files))
+    opts = _preload_engines(opts)
+    results = [
+        _process_file(f, args.output_dir, args.pdf_dpi, opts) for f in input_files
+    ]
+    _print_summary(results)
+    return 1 if any("error" in r for r in results) else 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,44 +1,56 @@
 """OCR engine wrapper.
 
-Manages PaddleOCR initialization, OpenCC simplified-to-traditional conversion,
-and OCR text detection/recognition.
+Manages PaddleOCR initialization (one engine per language), the OpenCC
+simplified-to-traditional converter, and text detection on an image.
 """
+
+from __future__ import annotations
 
 import logging
 import math
 import os
-import tempfile
-from typing import Any, Optional
+from typing import Any
 
-# Disable PaddlePaddle connectivity checks which causes startup delay
-os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+from appt_ocr.boxes import OcrBox
+from appt_ocr.image import ImageInput, as_array
 
 logger = logging.getLogger(__name__)
 
-# Lazily initialized OCR engine instance
-_ocr_engine: Optional[Any] = None
+# One engine per language. A single slot, as before 3.1.0, meant the first
+# call's language won for the life of the process: process_pptx(lang="en")
+# after a "ch" run silently used the Chinese engine.
+_ocr_engines: dict[str, Any] = {}
 
-# Lazily initialized OpenCC simplified-to-traditional converter
-_opencc_converter: Optional[Any] = None
+_opencc_converter: Any | None = None
+_opencc_unavailable = False
+
+# A line whose top edge is tilted more than this is rotated or vertical text
+# and is skipped: a horizontal text box cannot represent it.
+ROTATED_MIN_DEGREES = 15
+ROTATED_MAX_DEGREES = 165
 
 
 def get_ocr_engine(lang: str = "ch") -> Any:
-    """Retrieve or initialize the PaddleOCR engine (lazy load).
+    """Retrieve or initialize the PaddleOCR engine for ``lang`` (lazy load).
 
     Args:
         lang: OCR language model. ``'ch'`` includes both Chinese and English,
               ``'en'`` is English only.
 
     Returns:
-        PaddleOCR instance.
+        PaddleOCR instance for that language, created once per process.
     """
-    global _ocr_engine
-    if _ocr_engine is None:
+    engine = _ocr_engines.get(lang)
+    if engine is None:
+        # Skip PaddlePaddle's model-source connectivity check, a startup delay
+        # with no benefit here. Set only when the engine is first built, not
+        # at import time, so importing the package changes nothing.
+        os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
         logging.getLogger("ppocr").setLevel(logging.ERROR)
 
         from paddleocr import PaddleOCR
 
-        _ocr_engine = PaddleOCR(
+        engine = PaddleOCR(
             use_angle_cls=True,
             lang=lang,
             show_log=False,
@@ -46,48 +58,55 @@ def get_ocr_engine(lang: str = "ch") -> Any:
             # crash on CPU with paddlepaddle >= 3.0.0
             enable_mkldnn=False,
         )
-    return _ocr_engine
+        _ocr_engines[lang] = engine
+    return engine
 
 
-def get_opencc_converter() -> Optional[Any]:
-    """Retrieve or initialize the OpenCC converter (lazy load).
+def reset_engines() -> None:
+    """Drop every cached engine and converter (tests, long-lived processes)."""
+    global _opencc_converter, _opencc_unavailable
+    _ocr_engines.clear()
+    _opencc_converter = None
+    _opencc_unavailable = False
 
-    Uses ``s2t`` (Simplified to Traditional) configuration.
+
+def get_opencc_converter() -> Any | None:
+    """Retrieve or initialize the OpenCC ``s2t`` converter (lazy load).
 
     Returns:
-        OpenCC converter instance, or ``None`` if not installed.
+        OpenCC converter instance, or ``None`` if it is not installed or
+        failed to initialize (warned once, not once per text box).
     """
-    global _opencc_converter
-    if _opencc_converter is None:
+    global _opencc_converter, _opencc_unavailable
+    if _opencc_converter is None and not _opencc_unavailable:
         try:
             from opencc import OpenCC
 
             _opencc_converter = OpenCC("s2t")
         except ImportError:
+            _opencc_unavailable = True
             logger.warning(
                 "opencc-python-reimplemented is not installed, "
                 "unable to convert simplified to traditional Chinese. "
                 "Install with: pip install opencc-python-reimplemented"
             )
-            return None
         except Exception as e:
+            _opencc_unavailable = True
             logger.warning("OpenCC initialization failed: %s", e)
-            return None
     return _opencc_converter
 
 
-def run_ocr_on_image(
-    image_bytes: bytes,
-    lang: str = "ch",
-) -> list[dict]:
-    """Run OCR recognition on an image, returning text and coordinate info.
+def run_ocr_on_image(image: ImageInput, lang: str = "ch") -> list[OcrBox]:
+    """Run OCR on an image, returning text and pixel coordinates.
 
     Args:
-        image_bytes: Binary content of the image.
+        image: Encoded image bytes, or a BGR array from ``decode_image``
+            (the array is handed to PaddleOCR directly; nothing is written
+            to disk).
         lang: OCR language.
 
     Returns:
-        List of OCR results, where each element is a dict::
+        One dict per horizontal text line::
 
             {
                 "left_px": float,   # Top-left X (pixels)
@@ -97,21 +116,17 @@ def run_ocr_on_image(
                 "text": str,        # Recognized text
                 "confidence": float # Confidence score (0~1)
             }
+
+        Rotated and vertical lines are left out.
     """
+    img = as_array(image)
+    if img is None:
+        return []
+
     ocr = get_ocr_engine(lang)
+    result = ocr.ocr(img, cls=True)
 
-    # PaddleOCR requires a file path or numpy array
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        tmp.write(image_bytes)
-        tmp_path = tmp.name
-
-    try:
-        result = ocr.ocr(tmp_path, cls=True)
-    finally:
-        os.unlink(tmp_path)
-
-    # Parse OCR results
-    parsed: list[dict] = []
+    parsed: list[OcrBox] = []
     if not result or not result[0]:
         return parsed
 
@@ -120,29 +135,24 @@ def run_ocr_on_image(
         text = line[1][0]
         confidence = line[1][1]
 
-        # Calculate rotation angle from four corner coordinates
         # PaddleOCR polygon order: top-left, top-right, bottom-right, bottom-left
         dx = box[1][0] - box[0][0]
         dy = box[1][1] - box[0][1]
         angle = abs(math.degrees(math.atan2(dy, dx)))
-        # Text angled closer to 90° or 270° is considered rotated — skip
-        if angle > 15 and angle < 165:
+        if ROTATED_MIN_DEGREES < angle < ROTATED_MAX_DEGREES:
             continue
 
-        # Calculate Bounding Box from the four corner coordinates
         xs = [pt[0] for pt in box]
         ys = [pt[1] for pt in box]
         left_px = min(xs)
         top_px = min(ys)
-        width_px = max(xs) - left_px
-        height_px = max(ys) - top_px
 
         parsed.append(
             {
                 "left_px": float(left_px),
                 "top_px": float(top_px),
-                "width_px": float(width_px),
-                "height_px": float(height_px),
+                "width_px": float(max(xs) - left_px),
+                "height_px": float(max(ys) - top_px),
                 "text": str(text),
                 "confidence": float(confidence),
             }

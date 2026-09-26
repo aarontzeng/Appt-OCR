@@ -1,121 +1,115 @@
-"""Tests for ocr.py"""
+"""Tests for ocr.py, against the stand-in PaddleOCR from conftest."""
 
+import numpy as np
 
-import pytest
-
+from appt_ocr import ocr
+from appt_ocr.image import decode_image
 from appt_ocr.ocr import get_ocr_engine, get_opencc_converter, run_ocr_on_image
+from tests.conftest import paddle_line
 
 
 class TestGetOcrEngine:
-    """Test OCR engine initialization."""
+    def test_one_engine_per_language(self, fake_paddle):
+        ch1 = get_ocr_engine("ch")
+        en = get_ocr_engine("en")
+        ch2 = get_ocr_engine("ch")
+        assert ch1 is ch2 and ch1 is not en
+        assert en.lang == "en"
+        assert fake_paddle.constructed == ["ch", "en"]
 
-    def test_get_ocr_engine_lazy_load(self):
-        """Test that OCR engine is lazily loaded."""
-        engine = get_ocr_engine("ch")
-        assert engine is not None
+    def test_reset_forgets_the_engines(self, fake_paddle):
+        first = get_ocr_engine("ch")
+        ocr.reset_engines()
+        assert get_ocr_engine("ch") is not first
 
-    def test_get_ocr_engine_ch_language(self):
-        """Test OCR engine with Chinese language."""
-        engine = get_ocr_engine("ch")
-        assert engine is not None
+    def test_importing_the_package_sets_no_environment_variable(self, monkeypatch):
+        monkeypatch.delenv("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", raising=False)
+        import importlib
 
-    def test_get_ocr_engine_en_language(self):
-        """Test OCR engine with English language."""
-        engine = get_ocr_engine("en")
-        assert engine is not None
+        importlib.reload(ocr)
+        import os
 
-    def test_get_ocr_engine_caches_result(self):
-        """Test that subsequent calls return cached instance."""
-        engine1 = get_ocr_engine("ch")
-        engine2 = get_ocr_engine("ch")
-        # Should return the same cached instance
-        assert engine1 is engine2
-
-    def test_ocr_engine_has_ocr_method(self):
-        """Test that OCR engine has the expected interface."""
-        engine = get_ocr_engine("ch")
-        assert hasattr(engine, "ocr")
+        assert "PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK" not in os.environ
 
 
 class TestGetOpenccConverter:
-    """Test OpenCC converter initialization."""
+    def test_returns_converter_or_none_and_caches(self):
+        c1 = get_opencc_converter()
+        c2 = get_opencc_converter()
+        assert c1 is c2
+        assert c1 is None or hasattr(c1, "convert")
 
-    def test_get_opencc_converter_returns_object_or_none(self):
-        """Test that OpenCC converter is available or returns None."""
-        converter = get_opencc_converter()
-        # Could be None if not installed, or an object if installed
-        assert converter is None or hasattr(converter, "convert")
+    def test_a_missing_opencc_is_warned_once(self, monkeypatch, caplog):
+        import sys
 
-    def test_get_opencc_converter_caches_result(self):
-        """Test that subsequent calls return cached instance."""
-        converter1 = get_opencc_converter()
-        converter2 = get_opencc_converter()
-        assert converter1 is converter2
+        monkeypatch.setitem(sys.modules, "opencc", None)
+        ocr.reset_engines()
+        try:
+            assert get_opencc_converter() is None
+            assert get_opencc_converter() is None
+            assert caplog.text.count("not installed") == 1
+        finally:
+            ocr.reset_engines()
 
 
 class TestRunOcrOnImage:
-    """Test OCR on image data."""
+    def test_parses_lines_into_boxes(self, fake_paddle, sample_image_bytes):
+        fake_paddle.returns(
+            [[[10, 20], [90, 20], [90, 45], [10, 45]], ("Hello", 0.95)],
+        )
+        (box,) = run_ocr_on_image(sample_image_bytes, "ch")
+        assert box == {
+            "left_px": 10.0,
+            "top_px": 20.0,
+            "width_px": 80.0,
+            "height_px": 25.0,
+            "text": "Hello",
+            "confidence": 0.95,
+        }
 
-    def test_run_ocr_on_image_returns_list(self, sample_image_bytes):
-        """Test that run_ocr_on_image returns a list."""
-        result = run_ocr_on_image(sample_image_bytes, lang="ch")
-        assert isinstance(result, list)
+    def test_accepts_a_decoded_array_and_hands_it_over(
+        self, fake_paddle, sample_image_bytes
+    ):
+        arr = decode_image(sample_image_bytes)
+        run_ocr_on_image(arr, "en")
+        assert fake_paddle.seen == [("en", arr.shape)]
 
-    def test_run_ocr_on_image_items_are_dicts(self, sample_image_bytes):
-        """Test that each OCR result item is a dict with required fields."""
-        result = run_ocr_on_image(sample_image_bytes, lang="ch")
-        for item in result:
-            assert isinstance(item, dict)
-            assert "text" in item
-            assert "left_px" in item
-            assert "top_px" in item
-            assert "width_px" in item
-            assert "height_px" in item
-            assert "confidence" in item
+    def test_rotated_lines_are_dropped(self, fake_paddle, sample_image_bytes):
+        fake_paddle.returns(
+            [[[10, 10], [20, 60], [10, 62], [0, 12]], ("vertical", 0.9)],
+            paddle_line(
+                {"left_px": 0.0, "top_px": 0.0, "width_px": 50.0, "height_px": 20.0},
+                "flat",
+            ),
+        )
+        assert [b["text"] for b in run_ocr_on_image(sample_image_bytes)] == ["flat"]
 
-    def test_run_ocr_on_image_with_english(self, sample_image_bytes):
-        """Test OCR with English language."""
-        result = run_ocr_on_image(sample_image_bytes, lang="en")
-        assert isinstance(result, list)
+    def test_no_detections_is_an_empty_list(self, fake_paddle, sample_image_bytes):
+        assert run_ocr_on_image(sample_image_bytes) == []
 
-    def test_run_ocr_on_image_with_invalid_bytes(self):
-        """Test OCR with invalid image bytes."""
-        invalid_bytes = b"not an image"
-        # Should either return empty list or raise an exception (implementation-defined)
-        try:
-            result = run_ocr_on_image(invalid_bytes, lang="ch")
-            assert isinstance(result, list)
-        except Exception:
-            pass  # Raising is also acceptable
+    def test_undecodable_bytes_are_an_empty_list_without_calling_the_engine(
+        self, fake_paddle
+    ):
+        assert run_ocr_on_image(b"not an image") == []
+        assert fake_paddle.seen == []
 
-    def test_run_ocr_on_image_empty_bytes(self):
-        """Test OCR with empty bytes."""
-        # Should either return empty list or raise an exception (implementation-defined)
-        try:
-            result = run_ocr_on_image(b"", lang="ch")
-            assert isinstance(result, list)
-        except Exception:
-            pass  # Raising is also acceptable
+    def test_the_engine_gets_the_array_not_a_file(
+        self, fake_paddle, sample_image_bytes, monkeypatch
+    ):
+        import tempfile
 
-    def test_run_ocr_on_image_plain_image_returns_list(self, sample_image_bytes):
-        """Test OCR on plain image (no text) returns empty list."""
-        result = run_ocr_on_image(sample_image_bytes, lang="ch")
-        # A solid red image has no text, so result should be empty list
-        assert isinstance(result, list)
+        monkeypatch.setattr(
+            tempfile, "NamedTemporaryFile", lambda *a, **k: pytest_fail()
+        )
+        run_ocr_on_image(sample_image_bytes)
+        assert isinstance(fake_paddle.seen[0][1], tuple)
 
 
-class TestOcrIntegration:
-    """Integration tests for OCR workflow."""
+def pytest_fail():
+    raise AssertionError("a temp file was written")
 
-    def test_ocr_workflow_with_real_text_image(self):
-        """Test complete OCR workflow (requires actual text image)."""
-        # This test requires a real image with text, skipped if not available
-        pytest.skip("Requires test image with actual text")
 
-    def test_ocr_engine_thread_safety(self):
-        """Test that OCR engine is thread-safe."""
-        # Note: PaddleOCR is generally thread-safe, but single-threaded
-        # access is recommended for model initialization
-        engine1 = get_ocr_engine("ch")
-        engine2 = get_ocr_engine("ch")
-        assert engine1 is engine2
+def test_numpy_arrays_are_what_the_engine_sees(fake_paddle, sample_image_bytes):
+    run_ocr_on_image(sample_image_bytes)
+    assert fake_paddle.seen[0][1] == (100, 100, 3)
+    assert isinstance(decode_image(sample_image_bytes), np.ndarray)

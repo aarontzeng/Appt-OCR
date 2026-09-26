@@ -25,9 +25,10 @@ __author__ = "Aaron Tzeng"
 __license__ = "MIT"
 
 from appt_ocr.ocr import run_ocr_on_image
-from appt_ocr.processing import process_pptx, process_slide
+from appt_ocr.processing import ProcessingOptions, process_pptx, process_slide
 
 __all__ = [
+    "ProcessingOptions",
     "process_pptx",
     "process_slide",
     "run_ocr_on_image",

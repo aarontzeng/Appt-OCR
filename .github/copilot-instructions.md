@@ -5,10 +5,10 @@
 ### Build & Install
 ```bash
 # Install in development mode (includes type checking, linting, testing)
-pip install -e ".[dev,lama]"
-
-# Install without LaMa (lighter alternative)
 pip install -e ".[dev]"
+
+# ...plus the LaMa engine (PyTorch; the tests do not need it)
+pip install -e ".[dev,lama]"
 ```
 
 ### Testing
@@ -77,8 +77,9 @@ For Each Slide:
 ### Module Responsibility Map
 | Module | Role |
 |--------|------|
-| `cli.py` | Argument parsing, CLI entry point (`appt-ocr` command) |
-| `processing.py` | Orchestrates slide/PPTX processing, coordinates all steps |
+| `cli.py` | Argument parsing, CLI entry point (`appt-ocr` command), exit status |
+| `boxes.py` | The OCR box record (`OcrBox`/`AnalyzedBox` TypedDicts) every stage passes along |
+| `processing.py` | Orchestrates slide/PPTX processing (`ProcessingOptions`, one function per step) |
 | `ocr.py` | PaddleOCR wrapper, OpenCC Chinese S→T conversion |
 | `image.py` | Text feature extraction: color analysis, bold detection, mask generation |
 | `inpainting.py` | LaMa and OpenCV inpainting engines (text erasure) |
@@ -102,7 +103,7 @@ The `merging.py` module has a `merge_threshold` parameter (default 0.5). This co
 - Regex filtering (`--ignore-re`, `--remove-re`) happens **after** merging
 
 ### Inpainting Engines
-- **LaMa** (default): High quality, requires PyTorch (~174 MB model), optional dependency
+- **LaMa** (default): High quality, requires PyTorch (~174 MB model), the `lama` extra
 - **OpenCV**: Lightweight fallback (Navier-Stokes), always available
 - Graceful fallback if LaMa unavailable
 
@@ -126,6 +127,7 @@ The `merging.py` module has a `merge_threshold` parameter (default 0.5). This co
 
 - Tests live in `tests/` (enforced by pytest config)
 - Use pytest with coverage: `pytest --cov=appt_ocr`
+- PaddleOCR and LaMa are never loaded in tests: `tests/conftest.py` installs stand-in modules (`fake_paddle`, `no_lama`), so every test asserts on this package's behaviour and none is wrapped in `try/except: skip`
 - Coverage report includes branch coverage
 - Mark flaky or slow tests with `@pytest.mark.` decorators
 - Test files named `test_*.py`
@@ -134,7 +136,7 @@ The `merging.py` module has a `merge_threshold` parameter (default 0.5). This co
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 - Version follows [Semantic Versioning](https://semver.org/)
-- Version declared in `pyproject.toml` → `__init__.py` reads it
+- Version declared once, in `appt_ocr/__init__.py`; `pyproject.toml` reads it (`dynamic = ["version"]`)
 - Release automation: Push version tag matching `v*.*.*` → GitHub Actions publishes to PyPI (OIDC Trusted Publishing)
 
 ## Pre-commit Hooks

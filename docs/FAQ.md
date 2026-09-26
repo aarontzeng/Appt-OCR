@@ -47,17 +47,20 @@ python --version
 
 | Method | LaMa Support | Development |
 |--------|--------------|-------------|
-| `pip install appt-ocr` | ✅ Yes (model auto-downloads on first run) | ❌ No |
-| `pip install -e .` | ✅ Yes (model auto-downloads on first run) | ✅ Yes (editable) |
-| `pip install -e ".[dev]"` | ✅ Yes | ✅ Yes (includes testing tools) |
+| `pip install -e .` | ❌ OpenCV engine only (no PyTorch) | ✅ Yes (editable) |
+| `pip install -e ".[lama]"` | ✅ Yes (model auto-downloads on first run) | ✅ Yes (editable) |
+| `pip install -e ".[dev]"` | ❌ OpenCV engine only | ✅ Yes (includes testing tools) |
+| `pip install -e ".[dev,lama]"` | ✅ Yes | ✅ Yes |
+
+The `lama` extra installs `simple-lama-inpainting`, which brings PyTorch and torchvision (~2 GB) and `opencv-python` beside the headless build this package uses; both provide `cv2`.
 
 ---
 
 ### Q: The LaMa model is huge (~174MB). Do I have to download it?
 
-**A:** The LaMa model weights (~174 MB) are downloaded automatically on first run and cached in `~/.cache/huggingface/`. Subsequent runs load from cache instantly.
+**A:** No. LaMa is the `lama` extra; without it the OpenCV engine is used, and `--inpaint-engine lama` (the default) says so once and falls back. With the extra installed, the weights (~174 MB) are downloaded on first run and cached in `~/.cache/huggingface/`; subsequent runs load from cache.
 
-To skip LaMa and use the lightweight OpenCV engine instead:
+To use the lightweight OpenCV engine explicitly:
 ```bash
 appt-ocr input.pptx --inpaint-engine opencv
 ```

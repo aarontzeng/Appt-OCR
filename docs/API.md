@@ -17,10 +17,11 @@ def process_pptx(
     keep_images: bool = False,
     merge_threshold: float = 0.5,
     ignore_re: str = "",
-    remove_re: str = "(?i)notebooklm",
+    remove_re: str = "",
     inpaint_engine: str = "lama",
     watermark_only: bool = False,
     s2t: bool = False,
+    options: ProcessingOptions | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -38,13 +39,14 @@ def process_pptx(
   - Higher values (0.7-0.9): Merge more aggressively
 - `ignore_re` (str, default=""): Regex pattern for text to ignore (keep in background, no text box)
   - Example: `r"P\s*=|∑"` to keep math formulas
-- `remove_re` (str, default="(?i)notebooklm"): Regex pattern for text to erase silently
+- `remove_re` (str, default=""): Regex pattern for text to erase silently
   - Example: `r"watermark|logo"` to remove watermarks
 - `inpaint_engine` (str, default="lama"): Text erasing engine:
   - `"lama"` - Deep learning model (high quality, requires PyTorch)
   - `"opencv"` - Traditional algorithm (lightweight, fast)
 - `watermark_only` (bool, default=False): If `True`, only erase text matching `remove_re`, skip OCR
 - `s2t` (bool, default=False): If `True`, convert simplified Chinese to traditional Chinese
+- `options` (`ProcessingOptions`, optional): a prepared options object; when given, the keyword arguments above are ignored
 
 **Returns:**
 
@@ -62,9 +64,10 @@ Dictionary with the following keys:
 
 **Raises:**
 
-- `FileNotFoundError`: If input file doesn't exist
-- `ValueError`: If parameters are invalid
-- `Exception`: If processing fails (corrupted PPTX, etc.)
+- `ValueError`: for an invalid option — an unknown `inpaint_engine`, a non-positive `dpi`, or an `ignore_re`/`remove_re` that is not a valid regular expression. Raised before the file is opened.
+- `pptx.exc.PackageNotFoundError`: if the input is missing or not a PPTX (python-pptx's own error)
+
+Pictures are handled per shape: a cropped picture is OCRed on the part it shows and its replacement keeps that view; a rotated picture is skipped with a warning; a picture OpenCV cannot decode (WMF/EMF/SVG) is skipped with a warning. The replacement picture keeps the original's place in the z-order and its format (a JPEG stays JPEG).
 
 **Example:**
 
@@ -100,6 +103,7 @@ def process_slide(
     inpaint_engine: str = "lama",
     watermark_only: bool = False,
     s2t: bool = False,
+    options: ProcessingOptions | None = None,
 ) -> int
 ```
 
@@ -131,21 +135,40 @@ for i, slide in enumerate(prs.slides):
 
 ---
 
+### `ProcessingOptions`
+
+The pipeline's settings as one validated object, for reuse across files.
+
+```python
+from appt_ocr import ProcessingOptions
+
+options = ProcessingOptions(
+    dpi=96, lang="ch", keep_images=False, merge_threshold=0.5,
+    ignore_re="", remove_re="", inpaint_engine="lama",
+    watermark_only=False, s2t=False,
+)
+options.with_engine("opencv")   # a copy with another inpainting engine
+```
+
+Construction raises `ValueError` for an unknown engine, a non-positive DPI or an invalid regex; the compiled patterns are available as `ignore_pattern` and `remove_pattern`.
+
+---
+
 ### `run_ocr_on_image()`
 
-Run OCR on image bytes and return detection results.
+Run OCR on an image and return detection results.
 
 ```python
 def run_ocr_on_image(
-    image_bytes: bytes,
+    image: bytes | numpy.ndarray,
     lang: str = "ch",
 ) -> list[dict]
 ```
 
 **Parameters:**
 
-- `image_bytes` (bytes): Image binary content (PNG, JPEG, etc.)
-- `lang` (str, default="ch"): OCR language ("ch" or "en")
+- `image` (bytes or `numpy.ndarray`): Image binary content (PNG, JPEG, etc.), or a BGR array from `appt_ocr.image.decode_image` — the array is handed to PaddleOCR directly, nothing is written to disk
+- `lang` (str, default="ch"): OCR language ("ch" or "en"); one engine is kept per language
 
 **Returns:**
 
@@ -233,6 +256,8 @@ merged = merge_nearby_boxes(boxes, merge_threshold=0.5)
 # Result: Single box with text "Hello"
 ```
 
+Boxes are grouped into lines first, then joined left to right. A gap of at least 15% of the line height is a word space and is joined with `" "` (`"Hello"` + `"World"` → `"Hello World"`); a smaller gap is a split inside a word (`"Hel"` + `"lo"` → `"Hello"`). CJK text is never given a space.
+
 ---
 
 ## Environment Variables
@@ -257,7 +282,7 @@ The OCR engine is lazily initialized. To customize:
 from appt_ocr.ocr import get_ocr_engine
 
 engine = get_ocr_engine("ch")
-# Engine is cached globally for subsequent calls
+# One engine is cached per language; reset_engines() drops them
 ```
 
 ### Inpainting Engines

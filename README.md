@@ -6,7 +6,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/aarontzeng/Appt-OCR/actions/workflows/ci.yml/badge.svg)](https://github.com/aarontzeng/Appt-OCR/actions)
 [![codecov](https://codecov.io/gh/aarontzeng/Appt-OCR/branch/main/graph/badge.svg)](https://codecov.io/gh/aarontzeng/Appt-OCR)
-[![PyPI](https://img.shields.io/pypi/v/appt-ocr.svg)](https://pypi.org/project/appt-ocr/)
 [![PaddleOCR](https://img.shields.io/badge/OCR-PaddleOCR-orange)](https://github.com/PaddlePaddle/PaddleOCR)
 
 Appt-OCR extracts images from PowerPoint (`.pptx`) and PDF presentations, performs high-accuracy OCR using [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), and reconstructs the recognized text as **editable text boxes** — all while optionally erasing the original text from background images using AI-powered inpainting.
@@ -30,6 +29,7 @@ Appt-OCR extracts images from PowerPoint (`.pptx`) and PDF presentations, perfor
 
 - Python **3.9+**
 - [PaddlePaddle](https://www.paddlepaddle.org.cn/) ≥ 2.6.0
+- For the LaMa engine: the `lama` extra (PyTorch, ~2 GB of wheels)
 
 ## 🚀 Installation
 
@@ -38,10 +38,11 @@ Appt-OCR extracts images from PowerPoint (`.pptx`) and PDF presentations, perfor
 ```bash
 git clone https://github.com/aarontzeng/Appt-OCR.git
 cd Appt-OCR
-pip install -e .
+pip install -e ".[lama]"   # with the LaMa inpainting engine
+pip install -e .           # OpenCV engine only, no PyTorch
 ```
 
-> **Note**: On first run with `--inpaint-engine lama` (the default), the LaMa model weights (~174 MB) are downloaded automatically from HuggingFace and cached in `~/.cache/huggingface/`. Subsequent runs load from cache.
+> **Note**: On first run with `--inpaint-engine lama` (the default), the LaMa model weights (~174 MB) are downloaded automatically from HuggingFace and cached in `~/.cache/huggingface/`. Subsequent runs load from cache. Without the `lama` extra the CLI says so once and runs the OpenCV engine instead.
 
 ## 📖 Quick Start
 
@@ -97,6 +98,16 @@ stats = process_pptx(
 print(f"Created {stats['total_textboxes']} text boxes across {stats['total_slides']} slides")
 ```
 
+Settings can also be validated once and reused across files:
+
+```python
+from appt_ocr import ProcessingOptions, process_pptx
+
+options = ProcessingOptions(lang="en", remove_re="(?i)draft", inpaint_engine="opencv")
+for name in ("a.pptx", "b.pptx"):
+    process_pptx(name, f"out/{name}", options=options)
+```
+
 ## ⚙️ CLI Reference
 
 | Argument | Default | Description |
@@ -114,19 +125,24 @@ print(f"Created {stats['total_textboxes']} text boxes across {stats['total_slide
 | `--watermark-only` | `False` | Only erase watermarks, skip text box creation |
 | `--no-s2t` | `False` | Disable Simplified → Traditional Chinese conversion |
 
+Exit status: `0` when every file was processed, `1` when any file failed (or no input file was found), `2` for a usage error such as an invalid regex. A bad `--ignore-re`/`--remove-re` is reported before any model is loaded.
+
+Pictures that are cropped in the deck are OCRed on the part they show, and the erased image keeps that view. Rotated pictures are skipped with a warning (a horizontal text box cannot follow them).
+
 ## 🏗️ Architecture
 
 ```
 appt_ocr/
 ├── __init__.py       # Package metadata & public API
+├── boxes.py          # The OCR box record (a TypedDict) every stage passes along
 ├── cli.py            # CLI argument parsing & entry point
 ├── coordinates.py    # Pixel ↔ EMU ↔ Point conversions
-├── image.py          # Text feature analysis (color, bold, masks)
+├── image.py          # Decode once; text feature analysis (color, bold, masks); crop
 ├── inpainting.py     # OpenCV & LaMa text erasure engines
 ├── merging.py        # OCR box kerning/merge logic
 ├── ocr.py            # PaddleOCR wrapper & OpenCC converter
 ├── pdf.py            # PDF → PPTX preprocessing (PyMuPDF)
-└── processing.py     # Slide & PPTX processing orchestration
+└── processing.py     # Slide & PPTX processing orchestration, ProcessingOptions
 ```
 
 ### Processing Pipeline
@@ -138,9 +154,9 @@ Input (PPTX/PDF)
   │
   ▼
   For each slide:
-    1. Extract image from Picture Shape
+    1. Extract image from Picture Shape (the visible, cropped part), decode once
     2. PaddleOCR detection → bounding boxes + text
-    3. Merge nearby boxes (kerning fix)
+    3. Merge nearby boxes (kerning fix; a word gap becomes a space)
     4. Regex filter (ignore / remove / keep)
     5. Analyze text features (color, bold, mask)
     6. Inpaint: erase text from image (LaMa or OpenCV)

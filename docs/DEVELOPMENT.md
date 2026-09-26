@@ -34,13 +34,14 @@ venv\Scripts\activate
 Install the package with all development dependencies:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"        # core + development tools
+pip install -e ".[dev,lama]"   # ...plus the LaMa engine (PyTorch)
 ```
 
 This installs:
 - Core dependencies (paddleocr, opencv, python-pptx, etc.)
 - Development tools (pytest, ruff, pyright, bandit)
-- Optional LaMa model support
+- With `lama`: the LaMa inpainting model (optional; the tests do not need it)
 
 ### 4. Verify Installation
 
@@ -63,7 +64,8 @@ pytest tests/ -v
 
 ```
 appt_ocr/
-├── __init__.py           # Package exports
+├── __init__.py           # Package exports and the version
+├── boxes.py              # The OCR box record (TypedDict)
 ├── cli.py                # CLI argument parsing & entry point
 ├── coordinates.py        # Pixel ↔ EMU coordinate conversions
 ├── image.py              # Text feature analysis & extraction
@@ -71,7 +73,7 @@ appt_ocr/
 ├── merging.py            # OCR box merging (kerning fix)
 ├── ocr.py                # PaddleOCR & OpenCC wrapper
 ├── pdf.py                # PDF → PPTX conversion
-└── processing.py         # Main processing pipeline
+└── processing.py         # Main processing pipeline, ProcessingOptions
 
 tests/
 ├── conftest.py           # pytest fixtures
